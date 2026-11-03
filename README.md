@@ -5,13 +5,13 @@ Carte de France (Plan IGN, zoom jusqu'à la rue). Une adresse saisie ou un clic 
 ## Comment la réponse est trouvée
 
 1. Le point cliqué est situé dans sa commune, son intercommunalité (EPCI) et son département, d'après le découpage administratif de l'IGN (ADMIN EXPRESS, Géoplateforme).
-2. L'intercommunalité est comparée à chaque ligne de la colonne A :
-   - **SIREN identique**, si le classeur a une colonne « SIREN » ou « Code EPCI » ;
-   - sinon **même nom**, sans tenir compte des mots génériques (« CA », « Communauté d'agglomération », « Métropole », accents, tirets) ;
-   - sinon **nom approché** : la réponse s'affiche « Oui ? », à vérifier.
-3. Une ligne de la colonne A qui parle de département (« Conseil départemental de… ») est comparée au département du point.
+2. Règle de décision, dans cet ordre :
+   - **Oui, délégataire intercommunal** : l'intercommunalité figure en colonne A (SIREN identique si une colonne « SIREN » existe, sinon même nom sans les mots génériques ; un nom seulement approché s'affiche « Oui ? », à vérifier) ;
+   - **Non, DDT / DDTM** : sinon, la DDT ou DDTM du département figure en colonne A (par son nom ou son numéro, « DDT 26 ») ;
+   - **Oui, département** : sinon (pas de DDT, ou DDT avec « Non » en colonne B), c'est forcément le département ; sa ligne « Conseil départemental … » est affichée si elle existe.
+3. Une ligne avec « Non » en colonne B n'est jamais retenue comme délégataire ni comme DDT.
 
-Sans correspondance, la réponse est **Non** et la barre affiche l'intercommunalité trouvée pour vérification.
+La barre affiche toujours la commune, l'intercommunalité et le département trouvés, pour vérification.
 
 ## Sécurité (même principe que l'Observatoire)
 

@@ -1,6 +1,6 @@
-import { EXEC_URL } from './config.js?v=1.0.1';
+import { EXEC_URL } from './config.js?v=1.1.0';
 import { requestSheet } from './bridge.js?v=1.0.0';
-import { findDelegataire } from './match.js?v=1.0.0';
+import { findDelegataire } from './match.js?v=1.1.0';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -71,14 +71,16 @@ function render(c, address) {
   if (!S.sheet) return `<div class="verdict none"><b>Données non chargées</b><span>Saisis la clé d’accès pour savoir s’il y a un délégataire.</span>
     ${EXEC_URL ? '<button type="button" class="btn" data-ask-key>Saisir la clé</button>' : ''}</div>${where}`;
   const res = findDelegataire(S.sheet, { epci: c.epci, departement: c.departement });
-  if (!res.found) return `<div class="verdict no"><b>Non</b><span>Aucun délégataire de la liste ne correspond à ${c.epci ? `« ${esc(c.epci.nom)} »` : 'l’intercommunalité'} ni au département${c.departement ? ` « ${esc(c.departement.nom)} »` : ''}.</span></div>${where}`;
   const HOW = { siren: 'SIREN de l’intercommunalité identique', exact: 'même nom que l’intercommunalité', approx: 'nom approché : à vérifier' };
+  const rows = ms => ms.map(m => `<section class="deleg"><h2>${esc(m.name)}</h2>
+      ${m.level === 'epci' ? `<p class="how ${m.how}">${HOW[m.how]}</p>` : ''}
+      <dl>${S.sheet.headers.map((h, i) => i && String(m.row[i] ?? '').trim() ? `<dt>${esc(h || `Colonne ${i + 1}`)}</dt><dd>${esc(m.row[i])}</dd>` : '').join('')}</dl></section>`).join('');
+  if (res.level === 'inconnu') return `<div class="verdict none"><b>Indéterminé</b><span>Ni délégataire intercommunal ni département trouvé pour ce point.</span></div>${where}`;
+  if (res.level === 'ddt') return `<div class="verdict no"><b>Non</b><span>Pas de délégataire : les aides à la pierre relèvent de l’État, ${esc(res.matches[0].name)}.</span></div>${rows(res.matches)}${where}`;
+  if (res.level === 'departement') return `<div class="verdict yes"><b>Oui</b><span>Délégation départementale : ${esc(c.departement.nom)} (${esc(c.departement.code)}). Aucun délégataire intercommunal, et pas de DDT active dans le tableur.</span></div>
+    ${res.matches.length ? rows(res.matches) : '<p class="how">Le département n’a pas de ligne propre dans le tableur.</p>'}${where}`;
   const approxOnly = res.matches.every(m => m.how === 'approx');
-  return `<div class="verdict yes${approxOnly ? ' check' : ''}"><b>Oui${approxOnly ? ' ?' : ''}</b><span>${res.matches.length > 1 ? `${res.matches.length} délégataires correspondent.` : 'Un délégataire couvre ce point.'}</span></div>
-    ${res.matches.map(m => `<section class="deleg"><h2>${esc(m.name)}</h2>
-      <p class="how ${m.how}">${m.level === 'departement' ? 'Délégation départementale · ' : ''}${HOW[m.how]}</p>
-      <dl>${S.sheet.headers.map((h, i) => i && String(m.row[i] ?? '').trim() ? `<dt>${esc(h || `Colonne ${i + 1}`)}</dt><dd>${esc(m.row[i])}</dd>` : '').join('')}</dl></section>`).join('')}
-    ${where}`;
+  return `<div class="verdict yes${approxOnly ? ' check' : ''}"><b>Oui${approxOnly ? ' ?' : ''}</b><span>${res.matches.length > 1 ? `${res.matches.length} délégataires correspondent.` : 'Délégataire intercommunal.'}</span></div>${rows(res.matches)}${where}`;
 }
 
 function openSide(html) { $('sideBody').innerHTML = html; $('side').hidden = false; document.body.classList.add('side-open'); }
