@@ -1,6 +1,6 @@
 // node test_match.mjs — qui gère les aides à la pierre au point cliqué. Données FICTIVES (noms publics, lignes inventées).
 import assert from 'node:assert/strict';
-import { findDelegataire, core } from './match.js';
+import { findDelegataire, core, profilesAt, isIdf } from './match.js';
 let n = 0; const eq = (a, b, m) => { assert.deepEqual(a, b, m); n++; };
 
 const sheet = { headers: ['Délégataire', 'Actif', 'Contact', 'Siren'], rows: [
@@ -34,4 +34,10 @@ eq(pick(findDelegataire(sheet, place('200066793', 'CC du Pays de Cruseilles', '7
 eq(pick(findDelegataire(sheet, place('200071165', 'CC fictive', '07', 'Ardèche'))), [true, 'departement', []], 'aucune DDT dans le tableur → département');
 eq(pick(findDelegataire(sheet, { epci: null, departement: null })), [false, 'inconnu', []], 'ni EPCI ni département');
 eq(findDelegataire(sheet, place('1', 'CC fictive', '2A', 'Corse-du-Sud')).level, 'departement', 'code 2A');
+// Profils territoriaux et DRIHL.
+eq(profilesAt({ code: '59350', epci: { code: '200093201' } }).map(p => p.name), ['Profil MEL'], 'Lille → Profil MEL');
+eq(profilesAt({ code: '75056', epci: { code: '200054781' } }).map(p => p.name), ['Profil Ville de Paris'], 'Paris → profil Ville de Paris');
+eq(profilesAt({ code: '92012', epci: { code: '200054781' } }), [], 'Boulogne : pas le profil Ville de Paris');
+eq(profilesAt({ code: '26362', epci: { code: '200068781' } }), [], 'Valence : aucun profil');
+eq([isIdf({ region: '11' }), isIdf({ region: '84' })], [true, false], 'Île-de-France = région 11');
 console.log(`match : ${n} vérifications OK`);

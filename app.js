@@ -1,6 +1,6 @@
 import { EXEC_URL } from './config.js?v=1.1.0';
 import { requestSheet } from './bridge.js?v=1.0.0';
-import { findDelegataire } from './match.js?v=1.1.0';
+import { findDelegataire, profilesAt, isIdf } from './match.js?v=1.2.0';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -49,16 +49,16 @@ async function analyze(lat, lon, label = '') {
   let commune, address = label;
   try {
     const [c, e, d, rev] = await Promise.all([
-      adminAt('commune', 'nom_officiel,code_insee', lat, lon),
+      adminAt('commune', 'nom_officiel,code_insee,code_insee_de_la_region', lat, lon),
       adminAt('epci', 'nom_officiel,code_siren', lat, lon),
       adminAt('departement', 'nom_officiel,code_insee', lat, lon),
       label ? null : getJson(`https://data.geopf.fr/geocodage/reverse?lon=${lon}&lat=${lat}&limit=1`).catch(() => null)
     ]);
-    commune = c && { nom: c.nom_officiel, code: c.code_insee, epci: e && { nom: e.nom_officiel, code: e.code_siren }, departement: d && { nom: d.nom_officiel, code: d.code_insee } };
+    commune = c && { nom: c.nom_officiel, code: c.code_insee, region: c.code_insee_de_la_region, epci: e && { nom: e.nom_officiel, code: e.code_siren }, departement: d && { nom: d.nom_officiel, code: d.code_insee } };
     address = address || rev?.features?.[0]?.properties?.label || '';
   } catch (err) { if (seq === S.seq) openSide(`<p class="err">${esc(err.message)}</p>`); return; }
   if (seq !== S.seq) return;
-  if (!commune) return openSide(`<div class="verdict none"><b>Hors de France</b><span>Aucune commune française à cet endroit.</span></div>`);
+  if (!commune) return openSide(`<section class="card manager"><span class="kicker">Aides à la pierre</span><b>Hors de France</b><p>Aucune commune française à cet endroit.</p></section>`);
   openSide(render(commune, address));
 }
 
@@ -68,19 +68,23 @@ function render(c, address) {
     <dt>Commune</dt><dd>${esc(c.nom)} <small>INSEE ${esc(c.code)}</small></dd>
     <dt>Intercommunalité</dt><dd>${c.epci ? `${esc(c.epci.nom)} <small>SIREN ${esc(c.epci.code)}</small>` : 'aucune'}</dd>
     <dt>Département</dt><dd>${c.departement ? `${esc(c.departement.nom)} (${esc(c.departement.code)})` : '—'}</dd></dl>`;
-  if (!S.sheet) return `<div class="verdict none"><b>Données non chargées</b><span>Saisis la clé d’accès pour savoir s’il y a un délégataire.</span>
-    ${EXEC_URL ? '<button type="button" class="btn" data-ask-key>Saisir la clé</button>' : ''}</div>${where}`;
+  const profiles = profilesAt(c);
+  const extra = `${isIdf(c) ? `<section class="card drihl"><span class="kicker">Marges</span><b>DRIHL</b><p>En Île-de-France, les marges sont gérées par la DRIHL (Direction régionale et interdépartementale de l’hébergement et du logement).</p></section>` : ''}
+    <section class="card profile"><span class="kicker">Profil Prestaterre</span>${profiles.length ? profiles.map(p => `<b>${esc(p.name)}</b><p>${esc(p.territory)}</p>`).join('') : '<p>Aucun profil territorial Prestaterre à cet endroit.</p>'}</section>`;
+  if (!S.sheet) return `<section class="card manager"><span class="kicker">Aides à la pierre</span><b>Données non chargées</b><p>Saisis la clé d’accès pour savoir qui gère les aides à la pierre ici.</p>
+    ${EXEC_URL ? '<button type="button" class="btn" data-ask-key>Saisir la clé</button>' : ''}</section>${extra}${where}`;
   const res = findDelegataire(S.sheet, { epci: c.epci, departement: c.departement });
   const HOW = { siren: 'SIREN de l’intercommunalité identique', exact: 'même nom que l’intercommunalité', approx: 'nom approché : à vérifier' };
-  const rows = ms => ms.map(m => `<section class="deleg"><h2>${esc(m.name)}</h2>
-      ${m.level === 'epci' ? `<p class="how ${m.how}">${HOW[m.how]}</p>` : ''}
-      <dl>${S.sheet.headers.map((h, i) => i && String(m.row[i] ?? '').trim() ? `<dt>${esc(h || `Colonne ${i + 1}`)}</dt><dd>${esc(m.row[i])}</dd>` : '').join('')}</dl></section>`).join('');
-  if (res.level === 'inconnu') return `<div class="verdict none"><b>Indéterminé</b><span>Ni délégataire intercommunal ni département trouvé pour ce point.</span></div>${where}`;
-  if (res.level === 'ddt') return `<div class="verdict no"><b>Non</b><span>Pas de délégataire : les aides à la pierre relèvent de l’État, ${esc(res.matches[0].name)}.</span></div>${rows(res.matches)}${where}`;
-  if (res.level === 'departement') return `<div class="verdict yes"><b>Oui</b><span>Délégation départementale : ${esc(c.departement.nom)} (${esc(c.departement.code)}). Aucun délégataire intercommunal, et pas de DDT active dans le tableur.</span></div>
-    ${res.matches.length ? rows(res.matches) : '<p class="how">Le département n’a pas de ligne propre dans le tableur.</p>'}${where}`;
-  const approxOnly = res.matches.every(m => m.how === 'approx');
-  return `<div class="verdict yes${approxOnly ? ' check' : ''}"><b>Oui${approxOnly ? ' ?' : ''}</b><span>${res.matches.length > 1 ? `${res.matches.length} délégataires correspondent.` : 'Délégataire intercommunal.'}</span></div>${rows(res.matches)}${where}`;
+  const details = ms => ms.map(m => { const dl = S.sheet.headers.map((h, i) => i && String(m.row[i] ?? '').trim() ? `<dt>${esc(h || `Colonne ${i + 1}`)}</dt><dd>${esc(m.row[i])}</dd>` : '').join('');
+    return dl ? `<dl class="deleg">${ms.length > 1 ? `<dt class="full">${esc(m.name)}</dt>` : ''}${dl}</dl>` : ''; }).join('');
+  const card = (title, sub, ms, warn = '') => `<section class="card manager"><span class="kicker">Gère les aides à la pierre</span><b>${esc(title)}</b><p>${sub}</p>${warn}</section>${details(ms)}`;
+  let body;
+  if (res.level === 'inconnu') body = card('Indéterminé', 'Ni intercommunalité ni département trouvé pour ce point.', []);
+  else if (res.level === 'ddt') body = card(res.matches[0].name, 'État : pas de délégataire sur ce territoire.', res.matches);
+  else if (res.level === 'departement') body = card(res.matches[0]?.name || `Département : ${c.departement.nom}`, `Délégation départementale (${esc(c.departement.code)}) : aucun délégataire intercommunal, pas de DDT active dans le tableur.`, res.matches);
+  else { const approx = res.matches.every(m => m.how === 'approx');
+    body = card(res.matches.map(m => m.name).join(' · '), `Délégataire intercommunal · ${HOW[res.matches[0].how]}`, res.matches, approx ? '<p class="warn">Correspondance de nom approchée : à vérifier dans le tableur.</p>' : ''); }
+  return `${body}${extra}${where}`;
 }
 
 function openSide(html) { $('sideBody').innerHTML = html; $('side').hidden = false; document.body.classList.add('side-open'); }

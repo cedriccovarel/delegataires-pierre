@@ -50,3 +50,16 @@ export function findDelegataire({ headers = [], rows = [] }, place) {
   const dep = named.filter(x => !isDdt(x.name) && isDept(x.name) && sameDept(x.name, dept)).map(x => ({ ...x, how: 'exact', level: 'departement' }));
   return { found: true, level: 'departement', matches: dep };
 }
+
+// Profils territoriaux Prestaterre (dossier Box « Documents type ») ; périmètres vérifiés dans ADMIN EXPRESS (IGN).
+// Les profils de maîtres d'ouvrage (Care Promotion, CDC Habitat, Futurhable) ne dépendent pas du lieu : non listés.
+export const PROFILES = [
+  { name: 'Profil CUD', territory: 'Communauté urbaine de Dunkerque', epci: '245900428' },
+  { name: 'Profil Lyon Métropole', territory: 'Métropole de Lyon', epci: '200046977' },
+  { name: 'Profil MEL', territory: 'Métropole Européenne de Lille', epci: '200093201' },
+  { name: 'Profil Métropole Nice Côte d’Azur', territory: 'Métropole Nice Côte d’Azur', epci: '200030195' },
+  { name: 'Profil Ville de Paris', territory: 'Ville de Paris', commune: '75056' },
+];
+export const profilesAt = c => PROFILES.filter(p => p.epci ? String(c.epci?.code) === p.epci : String(c.code) === p.commune);
+// Île-de-France (région 11) : les marges sont gérées par la DRIHL.
+export const isIdf = c => String(c.region) === '11';

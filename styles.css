@@ -1,4 +1,4 @@
-:root{--forest:#173e31;--forest2:#245947;--mint:#dfece5;--lime:#a7c857;--ink:#18201d;--muted:#5f6e67;--line:#dde4df;--bg:#f5f7f5;--white:#fff;
+:root{--brand:#06402b;--forest:#173e31;--forest2:#245947;--mint:#dfece5;--lime:#a7c857;--ink:#18201d;--muted:#5f6e67;--line:#dde4df;--bg:#f5f7f5;--white:#fff;
   --no:#a3352f;--no-bg:#fbeceb;--yes-bg:#eef5df;--check:#8a5a00;--check-bg:#fff4d6}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -28,18 +28,23 @@ body{background:var(--bg);color:var(--ink);font:15px/1.45 "IBM Plex Sans",ui-san
 .close:hover{background:var(--bg);color:var(--ink)}
 .close:focus-visible,.btn:focus-visible,.key button:focus-visible{outline:2px solid var(--forest2);outline-offset:2px}
 
-.verdict{display:flex;flex-direction:column;gap:4px;margin:8px 44px 18px 0;padding:16px 18px;border-radius:12px;background:var(--bg)}
-.verdict b{font-size:44px;line-height:1;font-weight:700;letter-spacing:-.02em}
-.verdict span{color:var(--muted)}
-.verdict.yes{background:var(--yes-bg)}.verdict.yes b{color:var(--forest)}
-.verdict.no{background:var(--no-bg)}.verdict.no b{color:var(--no)}
-.verdict.check{background:var(--check-bg)}.verdict.check b{color:var(--check)}
-.verdict.none b{font-size:22px}
+/* Encart « qui gère » sur le vert du logo Prestaterre ; DRIHL et profil au même niveau. */
+.card{margin:0 0 12px;padding:14px 16px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.card:first-child{margin-right:44px}
+.card .kicker{display:block;font-size:12px;font-weight:600;color:var(--muted)}
+.card b{display:block;margin:2px 0 4px;font-size:20px;line-height:1.25;color:var(--forest)}
+.card p{margin:0;font-size:14px;color:var(--muted)}
+.card.manager{background:var(--brand);border-color:var(--brand)}
+.card.manager .kicker{color:var(--lime)}.card.manager b{color:#fff}.card.manager p{color:#d6e6dd}
+.card.manager .warn{margin-top:8px;color:#ffd77a;font-weight:600}
+.card.drihl{background:var(--brand);border-color:var(--brand)}
+.card.drihl .kicker{color:var(--lime)}.card.drihl b{color:#fff}.card.drihl p{color:#d6e6dd}
+.card.profile b+p{margin-bottom:6px}
+.card .btn{background:var(--lime);color:var(--forest)}
 .btn{align-self:flex-start;margin-top:8px;padding:8px 14px;border:0;border-radius:8px;background:var(--forest);color:#fff;font:inherit;font-weight:600;cursor:pointer}
 
-.deleg{margin:0 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line)}
-.deleg h2{margin:0 0 2px;font-size:18px;color:var(--forest)}
-.how{margin:0 0 10px;font-size:13px;color:var(--muted)}.how.approx{color:var(--check);font-weight:600}
+.deleg{margin:0 0 14px;padding:0 4px 12px;border-bottom:1px solid var(--line)}
+.deleg .full{grid-column:1/-1;color:var(--forest);font-weight:600}
 dl{display:grid;grid-template-columns:minmax(90px,38%) 1fr;gap:6px 12px;margin:0;font-size:14px}
 dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
 dd small{color:var(--muted)}

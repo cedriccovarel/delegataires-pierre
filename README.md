@@ -11,6 +11,10 @@ Carte de France (Plan IGN, zoom jusqu'à la rue). Une adresse saisie ou un clic 
    - **Oui, département** : sinon (pas de DDT, ou DDT avec « Non » en colonne B), c'est forcément le département ; sa ligne « Conseil départemental … » est affichée si elle existe.
 3. Une ligne avec « Non » en colonne B n'est jamais retenue comme délégataire ni comme DDT.
 
+En plus, au même niveau :
+- **Île-de-France** (région 11) : les marges sont gérées par la **DRIHL** ;
+- **Profil Prestaterre** du lieu : Profil CUD (CU de Dunkerque), Profil Lyon Métropole, Profil MEL, Profil Métropole Nice Côte d’Azur (par SIREN de l’EPCI), Profil Ville de Paris (commune 75056). Les profils de maîtres d’ouvrage (Care Promotion, CDC Habitat, Futurhable) ne dépendent pas du lieu. Liste dans `match.js` (`PROFILES`).
+
 La barre affiche toujours la commune, l'intercommunalité et le département trouvés, pour vérification.
 
 ## Sécurité (même principe que l'Observatoire)
