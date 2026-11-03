@@ -1,4 +1,4 @@
-import { EXEC_URL } from './config.js?v=1.0.0';
+import { EXEC_URL } from './config.js?v=1.0.1';
 import { requestSheet } from './bridge.js?v=1.0.0';
 import { findDelegataire } from './match.js?v=1.0.0';
 
