@@ -62,20 +62,30 @@ async function analyze(lat, lon, label = '') {
   openSide(render(commune, address));
 }
 
+// Colonnes du tableur non affichées dans la barre latérale : F (Criticité), M (Type de délégation), N (Année de début de
+// convention), O (Année de fin de convention). Masquées par lettre et par intitulé (si une colonne est déplacée).
+const HIDDEN_LETTERS = new Set([5, 12, 13, 14]);
+const HIDDEN_NAMES = /criticit|type\s+de\s+d[ée]l[ée]gation|ann[ée]e.*convention|convention.*ann[ée]e|d[ée]but.*convention|fin.*convention/i;
+const shownColumn = (h, i) => i > 0 && !HIDDEN_LETTERS.has(i) && !HIDDEN_NAMES.test(String(h || ''));
+// Profil Prestaterre et localisation repliés par défaut ; l'état ouvert / fermé est gardé pendant la session (mémoire de l'onglet).
+const OPEN = { profile: false, where: false };
+const fold = (key, title, summary, inner, cls = '') => `<details class="fold ${cls}" data-fold="${key}" ${OPEN[key] ? 'open' : ''}><summary><span class="fold-title">${title}</span>${summary ? `<span class="fold-sum">${summary}</span>` : ''}<i class="fold-ic" aria-hidden="true"></i></summary>${inner}</details>`;
+
 function render(c, address) {
-  const where = `<dl class="where">
+  const whereList = `<dl class="where">
     ${address ? `<dt>Adresse</dt><dd>${esc(address)}</dd>` : ''}
     <dt>Commune</dt><dd>${esc(c.nom)} <small>INSEE ${esc(c.code)}</small></dd>
     <dt>Intercommunalité</dt><dd>${c.epci ? `${esc(c.epci.nom)} <small>SIREN ${esc(c.epci.code)}</small>` : 'aucune'}</dd>
     <dt>Département</dt><dd>${c.departement ? `${esc(c.departement.nom)} (${esc(c.departement.code)})` : '—'}</dd></dl>`;
+  const where = fold('where', 'Localisation', esc(c.nom), whereList, 'where-fold');
   const profiles = profilesAt(c);
   const drihl = isIdf(c) ? `<section class="card drihl"><span class="kicker">Marges</span><b>DRIHL</b><p>En Île-de-France, les marges sont gérées par la DRIHL (Direction régionale et interdépartementale de l’hébergement et du logement).</p></section>` : '';
-  const profile = `<section class="card profile"><span class="kicker">Profil Prestaterre</span>${profiles.length ? profiles.map(p => `<b>${esc(p.name)}</b><p>${esc(p.territory)}</p>`).join('') : '<p>Aucun profil territorial Prestaterre à cet endroit.</p>'}</section>`;
+  const profile = `<section class="card profile">${fold('profile', 'Profil Prestaterre', profiles.length ? `${profiles.length} profil${profiles.length > 1 ? 's' : ''}` : 'aucun', profiles.length ? profiles.map(p => `<b>${esc(p.name)}</b><p>${esc(p.territory)}</p>`).join('') : '<p>Aucun profil territorial Prestaterre à cet endroit.</p>')}</section>`;
   if (!S.sheet) return `<section class="card manager"><span class="kicker">Aides à la pierre</span><b>Données non chargées</b><p>Saisis la clé d’accès pour savoir qui gère les aides à la pierre ici.</p>
     ${EXEC_URL ? '<button type="button" class="btn" data-ask-key>Saisir la clé</button>' : ''}</section>${drihl}${profile}${where}`;
   const res = findDelegataire(S.sheet, { epci: c.epci, departement: c.departement });
   const HOW = { siren: 'SIREN de l’intercommunalité identique', exact: 'même nom que l’intercommunalité', approx: 'nom approché : à vérifier' };
-  const details = ms => ms.map(m => { const dl = S.sheet.headers.map((h, i) => i && String(m.row[i] ?? '').trim() ? `<dt>${esc(h || `Colonne ${i + 1}`)}</dt><dd>${esc(m.row[i])}</dd>` : '').join('');
+  const details = ms => ms.map(m => { const dl = S.sheet.headers.map((h, i) => shownColumn(h, i) && String(m.row[i] ?? '').trim() ? `<dt>${esc(h || `Colonne ${i + 1}`)}</dt><dd>${esc(m.row[i])}</dd>` : '').join('');
     return dl ? `<dl class="deleg">${ms.length > 1 ? `<dt class="full">${esc(m.name)}</dt>` : ''}${dl}</dl>` : ''; }).join('');
   const card = (title, sub, ms, warn = '') => `<section class="card manager"><span class="kicker">Gère les aides à la pierre</span><b>${esc(title)}</b><p>${sub}</p>${warn}</section>${drihl}${profiles.length ? profile : ''}${details(ms)}`;
   let body;
@@ -90,6 +100,7 @@ function render(c, address) {
 function openSide(html) { $('sideBody').innerHTML = html; $('side').hidden = false; document.body.classList.add('side-open'); }
 $('closeSide').onclick = () => { $('side').hidden = true; document.body.classList.remove('side-open'); };
 $('side').addEventListener('click', e => { if (e.target.closest('[data-ask-key]')) askKey(); });
+$('side').addEventListener('toggle', e => { const d = e.target.closest?.('[data-fold]'); if (d) OPEN[d.dataset.fold] = d.open; }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('side').hidden && !$('keyDlg').open) $('closeSide').click(); });
 
 /* ---------- Champ adresse (géocodage Géoplateforme) ---------- */
