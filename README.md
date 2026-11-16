@@ -43,3 +43,11 @@ Après une modification de `Code.gs` : **Déployer › Gérer les déploiements 
 - Site statique, sans build : `index.html`, `app.js`, `match.js`, `bridge.js`, `styles.css`.
 - Tests : `node test_match.mjs`.
 - Test local : `python3 -m http.server 8000 --bind 127.0.0.1`. Pour lire le classeur depuis le poste, ajouter `http://127.0.0.1:8000` à `PIERRE_ALLOWED_ORIGINS`.
+
+## Quartiers ANRU (v1.4.0)
+- Couche « Quartiers ANRU (NPNRU) » affichée par défaut, masquable (case en bas à gauche) : 216 quartiers d'intérêt national
+  (orange) et 264 d'intérêt régional (bleu, pointillés). Périmètres à partir du zoom 11, un point par quartier en dessous
+  (clic sur un point : zoom sur le quartier). Survol : nom, code QP, communes.
+- Clic droit sur la carte : si le point est dans un quartier, un encart « Quartier ANRU » s'affiche dans la barre latérale.
+- Données : `data/npnru.json`, le même fichier que TotalRecoll (ANCT / ANRU, data.gouv.fr, Licence Ouverte 2.0).
+- Test : `node test_anru.mjs`.

@@ -1,10 +1,11 @@
 import { EXEC_URL } from './config.js?v=1.1.0';
 import { requestSheet } from './bridge.js?v=1.0.0';
 import { findDelegataire, profilesAt, isIdf } from './match.js?v=1.2.0';
+import { loadAnru, anruAt } from './anru.js?v=1.4.0';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const S = { key: '', sheet: null, loading: false, marker: null, seq: 0, last: null };
+const S = { key: '', sheet: null, loading: false, marker: null, seq: 0, last: null, anru: null };
 
 /* ---------- Carte : Plan IGN (Géoplateforme), jusqu'au niveau de la rue ---------- */
 const map = L.map('map', { zoomControl: false, minZoom: 5, maxZoom: 19 }).setView([46.6, 2.4], 6);
@@ -13,6 +14,26 @@ L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0
   { maxZoom: 19, attribution: '© <a href="https://www.ign.fr/">IGN</a> – Géoplateforme' }).addTo(map);
 // Clic droit (appui long sur mobile) : analyse du point.
 map.on('contextmenu', e => analyze(e.latlng.lat, e.latlng.lng));
+
+/* ---------- Quartiers ANRU (NPNRU) : couche affichée par défaut, masquable ---------- */
+const ANRU_STYLE = { national: { color: '#C1440E', weight: 2, fillColor: '#C1440E', fillOpacity: .22 }, 'régional': { color: '#2563A8', weight: 2, dashArray: '5 4', fillColor: '#2563A8', fillOpacity: .15 } };
+const anruLayer = L.featureGroup();
+const anruLabel = `Quartiers ANRU (NPNRU)<span class="anru-key"><i class="nat"></i>intérêt national<i class="reg"></i>intérêt régional</span>`;
+L.control.layers(null, { [anruLabel]: anruLayer }, { position: 'bottomleft', collapsed: false }).addTo(map);
+anruLayer.addTo(map);
+loadAnru().then(idx => {
+  S.anru = idx; const renderer = L.canvas({ padding: .3 });
+  // Périmètres à partir du zoom 11 ; en dessous (quartiers trop petits pour être vus), un point par quartier.
+  const shapes = L.featureGroup(), dots = L.featureGroup();
+  idx.quartiers.forEach(q => { const st = ANRU_STYLE[q.cat] || ANRU_STYLE.national;
+    const tip = `<b>${esc(q.nom)}</b><br>${esc(q.qp)} · intérêt ${esc(q.cat)}<br><small>${esc(q.communes.map(c => c[1]).join(', '))}</small>`;
+    L.polygon(q.rings, { ...st, renderer }).bindTooltip(tip, { sticky: true }).addTo(shapes);
+    L.circleMarker([(q.bbox[0] + q.bbox[2]) / 2, (q.bbox[1] + q.bbox[3]) / 2], { renderer, radius: 4, color: st.color, weight: 1.5, fillColor: st.color, fillOpacity: .7 })
+      .bindTooltip(tip).on('click', e => map.flyTo(e.latlng, 14, { duration: .8 })).addTo(dots); });
+  const byZoom = () => { const near = map.getZoom() >= 11; anruLayer.removeLayer(near ? dots : shapes); anruLayer.addLayer(near ? shapes : dots); };
+  map.on('zoomend', byZoom); byZoom();
+  if (S.last && !$('side').hidden) analyze(...S.last);
+}).catch(err => console.warn(err));
 
 /* ---------- Données : classeur privé lu par le pont Apps Script ---------- */
 function setDataState(text, kind = '') { const el = $('dataState'); el.textContent = text; el.className = 'data ' + kind; }
@@ -54,7 +75,7 @@ async function analyze(lat, lon, label = '') {
       adminAt('departement', 'nom_officiel,code_insee', lat, lon),
       label ? null : getJson(`https://data.geopf.fr/geocodage/reverse?lon=${lon}&lat=${lat}&limit=1`).catch(() => null)
     ]);
-    commune = c && { nom: c.nom_officiel, code: c.code_insee, region: c.code_insee_de_la_region, epci: e && { nom: e.nom_officiel, code: e.code_siren }, departement: d && { nom: d.nom_officiel, code: d.code_insee } };
+    commune = c && { anru: anruAt(S.anru, lat, lon), nom: c.nom_officiel, code: c.code_insee, region: c.code_insee_de_la_region, epci: e && { nom: e.nom_officiel, code: e.code_siren }, departement: d && { nom: d.nom_officiel, code: d.code_insee } };
     address = address || rev?.features?.[0]?.properties?.label || '';
   } catch (err) { if (seq === S.seq) openSide(`<p class="err">${esc(err.message)}</p>`); return; }
   if (seq !== S.seq) return;
@@ -76,18 +97,20 @@ function render(c, address) {
     ${address ? `<dt>Adresse</dt><dd>${esc(address)}</dd>` : ''}
     <dt>Commune</dt><dd>${esc(c.nom)} <small>INSEE ${esc(c.code)}</small></dd>
     <dt>Intercommunalité</dt><dd>${c.epci ? `${esc(c.epci.nom)} <small>SIREN ${esc(c.epci.code)}</small>` : 'aucune'}</dd>
-    <dt>Département</dt><dd>${c.departement ? `${esc(c.departement.nom)} (${esc(c.departement.code)})` : '—'}</dd></dl>`;
+    <dt>Département</dt><dd>${c.departement ? `${esc(c.departement.nom)} (${esc(c.departement.code)})` : '—'}</dd>
+    <dt>Quartier ANRU</dt><dd>${c.anru ? `${esc(c.anru.nom)} <small>${esc(c.anru.qp)}</small>` : S.anru ? 'non' : 'liste non chargée'}</dd></dl>`;
   const where = fold('where', 'Localisation', esc(c.nom), whereList, 'where-fold');
   const profiles = profilesAt(c);
+  const anru = c.anru ? `<section class="card anru"><span class="kicker">Quartier ANRU</span><b>${esc(c.anru.nom)}</b><p>${esc(c.anru.qp)} · NPNRU, intérêt ${esc(c.anru.cat)}</p></section>` : '';
   const drihl = isIdf(c) ? `<section class="card drihl"><span class="kicker">Marges</span><b>DRIHL</b><p>En Île-de-France, les marges sont gérées par la DRIHL (Direction régionale et interdépartementale de l’hébergement et du logement).</p></section>` : '';
   const profile = `<section class="card profile">${fold('profile', 'Profil Prestaterre', profiles.length ? `${profiles.length} profil${profiles.length > 1 ? 's' : ''}` : 'aucun', profiles.length ? profiles.map(p => `<b>${esc(p.name)}</b><p>${esc(p.territory)}</p>`).join('') : '<p>Aucun profil territorial Prestaterre à cet endroit.</p>')}</section>`;
   if (!S.sheet) return `<section class="card manager"><span class="kicker">Aides à la pierre</span><b>Données non chargées</b><p>Saisis la clé d’accès pour savoir qui gère les aides à la pierre ici.</p>
-    ${EXEC_URL ? '<button type="button" class="btn" data-ask-key>Saisir la clé</button>' : ''}</section>${drihl}${profile}${where}`;
+    ${EXEC_URL ? '<button type="button" class="btn" data-ask-key>Saisir la clé</button>' : ''}</section>${drihl}${anru}${profile}${where}`;
   const res = findDelegataire(S.sheet, { epci: c.epci, departement: c.departement });
   const HOW = { siren: 'SIREN de l’intercommunalité identique', exact: 'même nom que l’intercommunalité', approx: 'nom approché : à vérifier' };
   const details = ms => ms.map(m => { const dl = S.sheet.headers.map((h, i) => shownColumn(h, i) && String(m.row[i] ?? '').trim() ? `<dt>${esc(h || `Colonne ${i + 1}`)}</dt><dd>${esc(m.row[i])}</dd>` : '').join('');
     return dl ? `<dl class="deleg">${ms.length > 1 ? `<dt class="full">${esc(m.name)}</dt>` : ''}${dl}</dl>` : ''; }).join('');
-  const card = (title, sub, ms, warn = '') => `<section class="card manager"><span class="kicker">Gère les aides à la pierre</span><b>${esc(title)}</b><p>${sub}</p>${warn}</section>${drihl}${profiles.length ? profile : ''}${details(ms)}`;
+  const card = (title, sub, ms, warn = '') => `<section class="card manager"><span class="kicker">Gère les aides à la pierre</span><b>${esc(title)}</b><p>${sub}</p>${warn}</section>${drihl}${anru}${profiles.length ? profile : ''}${details(ms)}`;
   let body;
   if (res.level === 'inconnu') body = card('Indéterminé', 'Ni intercommunalité ni département trouvé pour ce point.', []);
   else if (res.level === 'ddt') body = card(res.matches[0].name, 'État : pas de délégataire sur ce territoire.', res.matches);
