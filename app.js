@@ -39,14 +39,25 @@ loadAnru().then(idx => {
 function setDataState(text, kind = '') { const el = $('dataState'); el.textContent = text; el.className = 'data ' + kind; }
 function askKey(msg = '') { if (!EXEC_URL) return; $('keyErr').textContent = msg; if (!$('keyDlg').open) $('keyDlg').showModal(); $('keyInput').focus(); }
 
+const eggTime = () => { const t = Date.now(); return new URLSearchParams(location.search).has('oeuf')
+  || (t >= Date.parse('2026-11-20T10:30:00+01:00') && t < Date.parse('2026-11-20T11:30:00+01:00')); };
 async function loadSheet() {
   S.loading = true; setDataState('Chargement des délégataires…'); $('keyOk').disabled = true;
+  const req = requestSheet(EXEC_URL, S.key); req.catch(() => {});
+  // EASTER EGG TEMPORAIRE (20/11/2026 10h30–11h30, heure de Paris ; ?oeuf pour tester) — retiré automatiquement ensuite.
+  // Hors créneau, rien n'est chargé : comportement identique à la v1.4.0.
+  let show = null;
+  if (eggTime()) { const egg = await import('./oeuf/egg.js?v=2').catch(() => null);
+    const urls = egg && await egg.prepareEgg(S.key);
+    if (urls) { $('keyDlg').close(); show = egg.playEgg(urls); } }
   try {
-    const r = await requestSheet(EXEC_URL, S.key);
+    const r = await req;
+    if (show) await show.done;
     S.sheet = { headers: r.headers || [], rows: r.rows || [] };
     setDataState(`${S.sheet.rows.length} délégataires chargés`, 'ok'); $('keyDlg').close();
     if (S.last) analyze(...S.last);
   } catch (err) {
+    show?.abort();
     S.key = ''; setDataState('Délégataires non chargés', 'warn'); askKey(err.message);
   } finally { S.loading = false; $('keyOk').disabled = false; }
 }
