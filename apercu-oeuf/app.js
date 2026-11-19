@@ -2,7 +2,7 @@ import { EXEC_URL } from '../config.js?v=1.1.0';
 import { requestSheet } from '../bridge.js?v=1.0.0';
 import { findDelegataire, profilesAt, isIdf } from '../match.js?v=1.2.0';
 import { loadAnru, anruAt } from '../anru.js?v=1.4.0';
-import { prepareEgg, playEgg } from '../oeuf/egg.js?v=1';
+import { prepareEgg, playEgg } from '../oeuf/egg.js?v=2';
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);

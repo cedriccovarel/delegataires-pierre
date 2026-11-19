@@ -2,7 +2,7 @@
 // Les photos sont chiffrées (openssl enc -aes-256-cbc -pbkdf2 -iter 150000 -md sha256) avec la clé d'accès :
 // sans la bonne clé, rien ne s'affiche et le site se comporte normalement.
 const ITER = 150000;
-const PHOTOS = ['1.bin', '2.bin'];
+const PHOTOS = ['1.bin', '2.bin', '3.bin', '4.bin', '5.bin'];
 
 async function decrypt(buf, key) {
   const b = new Uint8Array(buf);
@@ -29,16 +29,18 @@ const STEPS = [
   'Initialisation du modem 56k… 📞',
   'Connexion à la DRIHL par Minitel…',
   'Dépoussiérage des conventions de délégation…',
-  'Comptage des EPCI à la main…',
+  'Barattage du beurre de la délégation 🧈…',
   'Calcul des aides à la pierre (et des amandes fumées)…',
   'Ouverture du crémant réglementaire 🍾',
   'Vérification RE2020 du gobelet en carton…',
-  'Négociation serrée avec le Conseil départemental…',
+  'Fonte du chocolat départemental 🍫…',
+  'Gonflage des muscles gras 💪…',
   'Presque fini (promis juré) …',
   'Chargement des derniers 1 %…',
   'Toujours les derniers 1 %…',
 ];
-const CAPTIONS = ['Séance de travail intense 💼', 'Validation du référentiel 🥂', 'Réunion stratégique 🥜', 'Contrôle qualité du crémant ✨'];
+// Une légende par photo, dans l'ordre de PHOTOS.
+const CAPTIONS = ['Réunion stratégique 🥜', 'Validation du référentiel 🥂', 'Audit du beurre réglementaire 🧈', 'Muscle gras certifié 💪', 'Fondue de la délégation 🍫'];
 const FX = ['fx-spin', 'fx-zoom', 'fx-flip', 'fx-slide'];
 const FLOAT = ['✨', '⭐', '💖', '🍾', '🥂', '🥜', '🏠', '🌈', '💾', '🎉'];
 
@@ -77,7 +79,7 @@ export function playEgg(urls, duration = 24000) {
     slide++; front = 1 - front;
     const img = imgs[front]; img.src = urls[slide % urls.length];
     imgs.forEach((im, i) => { im.className = i === front ? 'show ' + FX[slide % FX.length] : 'hide'; });
-    cap.textContent = CAPTIONS[slide % CAPTIONS.length];
+    cap.textContent = CAPTIONS[slide % urls.length] || '';
     pol.style.setProperty('--tilt', `${(slide % 2 ? 1 : -1) * (2 + (slide % 3) * 1.5)}deg`);
   };
   next();
