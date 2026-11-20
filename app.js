@@ -41,11 +41,11 @@ function askKey(msg = '') { if (!EXEC_URL) return; $('keyErr').textContent = msg
 
 // ?oeuf : écran forcé pour tester ; ?oeuf=relock : pas d'écran au 1er chargement, seulement après la « session expirée ».
 const eggTime = () => { const t = Date.now(), o = new URLSearchParams(location.search).get('oeuf'); return (o !== null && (o !== 'relock' || relocked))
-  || (t >= Date.parse('2026-11-20T10:30:00+01:00') && t < Date.parse('2026-11-20T11:30:00+01:00')); };
+  || (t >= Date.parse('2026-11-20T10:22:00+01:00') && t < Date.parse('2026-11-20T11:30:00+01:00')); };
 async function loadSheet() {
   S.loading = true; setDataState('Chargement des délégataires…'); $('keyOk').disabled = true;
   const req = requestSheet(EXEC_URL, S.key); req.catch(() => {});
-  // EASTER EGG TEMPORAIRE (20/11/2026 10h30–11h30, heure de Paris ; ?oeuf pour tester) — retiré automatiquement ensuite.
+  // EASTER EGG TEMPORAIRE (20/11/2026 10h22–11h30, heure de Paris ; ?oeuf pour tester) — retiré automatiquement ensuite.
   // Hors créneau, rien n'est chargé : comportement identique à la v1.4.0.
   let show = null;
   if (eggTime()) { const egg = await import('./oeuf/egg.js?v=2').catch(() => null);
@@ -65,12 +65,17 @@ async function loadSheet() {
 // EASTER EGG : à 10h40, les onglets déjà chargés qui n'ont pas vu l'écran redemandent la clé (« session expirée »).
 // ?oeuf=relock pour tester : la clé est redemandée 30 s après le chargement des délégataires.
 let eggSeen = false, relocked = false;
-const EGG_RELOCK = new URLSearchParams(location.search).get('oeuf') === 'relock' ? null : Date.parse('2026-11-20T10:40:00+01:00');
+// Clé redemandée à 10h25 puis à 10h40 (aux onglets qui n'ont pas encore vu l'écran).
+const EGG_RELOCKS = [Date.parse('2026-11-20T10:25:00+01:00'), Date.parse('2026-11-20T10:40:00+01:00')];
+const EGG_RELOCK = new URLSearchParams(location.search).get('oeuf') === 'relock' ? null : EGG_RELOCKS[0];
 const EGG_END = Date.parse('2026-11-20T11:30:00+01:00');
 let relockAt = EGG_RELOCK;
 const relock = setInterval(() => { const t = Date.now();
   if (EGG_RELOCK && t >= EGG_END) return clearInterval(relock);
   if (!EGG_RELOCK && S.sheet && !relockAt) relockAt = t + 30000;
+  if (EGG_RELOCK && relockAt && t >= relockAt) { const nx = EGG_RELOCKS.find(x => x > t); if (eggSeen || !S.sheet || S.loading) { if (eggSeen) return clearInterval(relock); if (!S.sheet && !S.loading) { relockAt = nx || null; if (!relockAt) clearInterval(relock); } return; } relockAt = nx || null; if (!relockAt) clearInterval(relock); relocked = true;
+    S.sheet = null; S.key = ''; setDataState('Session expirée', 'warn');
+    askKey('Session expirée : saisis à nouveau la clé d’accès.'); if (S.last && !$('side').hidden) analyze(...S.last); return; }
   if (relockAt && t >= relockAt && !eggSeen && S.sheet && !S.loading) { clearInterval(relock); relocked = true;
     S.sheet = null; S.key = ''; setDataState('Session expirée', 'warn');
     askKey('Session expirée : saisis à nouveau la clé d’accès.'); if (S.last && !$('side').hidden) analyze(...S.last); } }, 5000);
