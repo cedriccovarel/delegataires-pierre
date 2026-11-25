@@ -56,7 +56,21 @@ if (EXEC_URL) { setDataState('Délégataires non chargés', 'warn'); askKey(); }
 else setDataState('Source Google Sheet non configurée', 'warn');
 
 /* ---------- Analyse d'un point ---------- */
-async function getJson(url) { const r = await fetch(url); if (!r.ok) throw new Error(`Service indisponible (${r.status})`); return r.json(); }
+// Les services IGN renvoient parfois, au hasard, une page de métriques (« # HELP jvm… », code 200) au lieu du JSON :
+// on vérifie la réponse et on relance jusqu'à 3 fois avant d'afficher une erreur lisible.
+async function getJson(url, tries = 4) {
+  let last = '';
+  for (let i = 0; i < tries; i++) {
+    if (i) await new Promise(res => setTimeout(res, 250 * i));
+    try {
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) { last = `code ${r.status}`; if (r.status < 500 && r.status !== 429) break; continue; }
+      const txt = await r.text();
+      try { return JSON.parse(txt); } catch { last = 'réponse illisible'; }
+    } catch { last = 'réseau'; }
+  }
+  throw new Error(`Service IGN momentanément indisponible (${last}). Réessayez dans quelques secondes.`);
+}
 // Découpage administratif IGN (ADMIN EXPRESS) au point cliqué, sans géométrie : commune, EPCI, département.
 async function adminAt(layer, props, lat, lon) {
   const u = `https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ADMINEXPRESS-COG.LATEST:${layer}&outputFormat=application/json&count=1&propertyName=${props}&CQL_FILTER=INTERSECTS(geometrie,POINT(${lat} ${lon}))`;
